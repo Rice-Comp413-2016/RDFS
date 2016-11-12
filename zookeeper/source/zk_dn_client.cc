@@ -162,8 +162,6 @@ namespace zkclient{
 		// Create the work queues, set their watchers
 		std::string q1 = "replicate";
 		ZkClientDn::initWorkQueue(q1, ZkClientDn::thisDNReplicationQueueWatcher, id);
-
-		zk->create(WORK_QUEUES + q1 + "/" + id + "/1234", ZKWrapper::EMPTY_VECTOR, error_code);
 	}
 
 	void ZkClientDn::initWorkQueue(std::string queueName, void (* watchFuncPtr)(zhandle_t *, int, int, const char *, void *), std::string id){
