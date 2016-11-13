@@ -42,11 +42,6 @@ TEST_F(ZKDNClientTest, RegisterMakesWorkQueues){
         std::vector<std::uint8_t> data(sizeof(BlockZNode));
         std::string path = "/work_queues/replicate/" + dn_id;
 
-	system("sudo ~/zookeeper/bin/zkCli.sh rmr /work_queues");
-	system("sudo ~/zookeeper/bin/zkCli.sh rmr /health");
-	system("sudo ~/zookeeper/bin/zkCli.sh rmr /fileSystem");
-	system("sudo ~/zookeeper/bin/zkCli.sh rmr /block_locations");
-	system("sudo ~/zookeeper/bin/zkCli.sh rmr /zookeeper");
 	client->registerDataNode();
 	ASSERT_TRUE(zk->get(path, data, error_code));
 }
@@ -74,7 +69,7 @@ int main(int argc, char **argv) {
 	system("sudo ~/zookeeper/bin/zkCli.sh rmr /testing");
 	::testing::InitGoogleTest(&argc, argv);
 	auto ret = RUN_ALL_TESTS();
-	system("sudo ~/zookeeper/bin/zkCli.sh rmr /testing");
-	system("sudo ~/zookeeper/bin/zkServer.sh stop");
+	//system("sudo ~/zookeeper/bin/zkCli.sh rmr /testing");
+	//system("sudo ~/zookeeper/bin/zkServer.sh stop");
 	return ret;
 }
