@@ -139,10 +139,10 @@ class ZkNnClient : public ZkClientCommon {
 		bool replicate_block(const std::string &block_uuid, int num_replicas, std::vector<std::string> &excluded_datanodes);
 
 		/**
-		 * Calculates the approximate number of seconds that have elapsed since
-		 * the znode at the given path was created.
+		 * Calculates the approximate number of milliseconds that have elapsed
+		 * since the znode at the given path was created.
 		 */
-		int seconds_since_creation(std::string &path);
+		int ms_since_creation(std::string &path);
 
 		/**
 		 * Modifies the LocatedBlockProto with the proper block information
@@ -179,7 +179,7 @@ class ZkNnClient : public ZkClientCommon {
 		const int IS_FILE = 2;
 		const int IS_DIR = 1;
 		// TODO: Should eventually be read from a conf file
-		const int ACK_TIMEOUT = 60; // 60 second timeout when waiting for replication acknowledgements
+		const int ACK_TIMEOUT = 600000; // in millisecons, 10 minute timeout when waiting for replication acknowledgements
 
 };
 
