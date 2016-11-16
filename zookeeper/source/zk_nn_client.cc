@@ -627,15 +627,19 @@ namespace zkclient{
 
 		// Generate the massive multi-op for creating the block
 
-		std::vector<std::uint8_t> data;
-		data.resize(sizeof(u_int64_t));
-		memcpy(&data[0], &block_id, sizeof(u_int64_t));
+		std::vector<std::uint8_t> block_id_data;
+		block_id_data.resize(sizeof(u_int64_t));
+		memcpy(&block_id_data[0], &block_id, sizeof(u_int64_t));
+
+		std::vector<std::uint8_t> rep_factor_data;
+		rep_factor_data.resize(sizeof(uint32_t));
+		memcpy(&rep_factor_data[0], &replicationFactor, sizeof(uint32_t));
 
 		LOG(INFO) << CLASS_NAME << "Generating block for " << ZookeeperPath(file_path);
 
 		// ZooKeeper multi-op to
-		auto seq_file_block_op = zk->build_create_op(ZookeeperPath(file_path + "/block_"), data, ZOO_SEQUENCE);
-		auto ack_op = zk->build_create_op("/work_queues/wait_for_acks/" + block_id_str, ZKWrapper::EMPTY_VECTOR);
+		auto seq_file_block_op = zk->build_create_op(ZookeeperPath(file_path + "/block_"), block_id_data, ZOO_SEQUENCE);
+		auto ack_op = zk->build_create_op("/work_queues/wait_for_acks/" + block_id_str, rep_factor_data);
 		auto block_location_op = zk->build_create_op("/block_locations/" + block_id_str, ZKWrapper::EMPTY_VECTOR);
 
 		std::vector<std::shared_ptr<ZooOp>> ops = {seq_file_block_op, ack_op, block_location_op};
