@@ -178,6 +178,24 @@ namespace {
 		ASSERT_EQ("ZOK", zk->translate_error(error));
 		ASSERT_EQ(5, retrieved_data.size());
 	}
+
+	TEST_F(ZKWrapperTest, get_info){
+		int error = 0;
+		bool result = zk->create("/get_info", ZKWrapper::EMPTY_VECTOR, error);
+		ASSERT_EQ(true, result);
+
+		struct Stat stat;
+		ASSERT_EQ(true, zk->get_info("/get_info", stat, error));
+		ASSERT_EQ(0, stat.version);
+		ASSERT_EQ(0, stat.numChildren);
+		ASSERT_EQ(0, stat.dataLength);
+
+		result = zk->create("/get_info/child1", ZKWrapper::EMPTY_VECTOR, error);
+		ASSERT_EQ(true, result);
+
+		ASSERT_EQ(true, zk->get_info("/get_info", stat, error));
+		ASSERT_EQ(1, stat.numChildren);
+	}
 	
 	TEST_F(ZKWrapperTest, wget){
 		int error = 0;
