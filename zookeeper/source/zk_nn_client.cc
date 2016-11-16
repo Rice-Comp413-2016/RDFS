@@ -671,25 +671,11 @@ namespace zkclient{
 			auto excluded_datanodes = std::vector <std::string>();
 			if (!newBlock) {
 				// Get the list of datanodes which already have a replica
-				if (zk->get_children(BLOCK_LOCATIONS + std::to_string(blockId), excluded_datanodes, error_code)) {
-					// Remove the excluded datanodes from the live list
-					for (auto excluded : excluded_datanodes) {
-						std::vector<std::string>::iterator it = std::find(
-								live_data_nodes.begin(),
-								live_data_nodes.end(),
-								excluded);
-
-						if (it != live_data_nodes.end()) {
-							// The excluded dn was found, so remove it
-							live_data_nodes.erase(it);
-						}
-					}
-				} else {
+				if (!zk->get_children(BLOCK_LOCATIONS + std::to_string(blockId), excluded_datanodes, error_code)) {
 					LOG(ERROR) << CLASS_NAME << "Error getting children of: " << BLOCK_LOCATIONS + std::to_string(blockId);
 					return false;
 				}
 			}
-			// LOG(INFO) << CLASS_NAME << "Live DNs after excluding those with existing replicas: " << live_data_nodes;
 
 			/* for each child, check if the ephemeral node exists */
 			for(auto datanode : live_data_nodes) {
@@ -698,13 +684,43 @@ namespace zkclient{
 					LOG(ERROR) << CLASS_NAME << "Failed to check if datanode: " + datanode << " is alive: " << error_code;
 				}
 				if (isAlive) {
-					datanodes.push_back(datanode);
+					bool exclude;
+					if (excluded_datanodes.size() > 0) {
+						// Remove the excluded datanodes from the live list
+						std::vector<std::string>::iterator it = std::find(
+								excluded_datanodes.begin(),
+								excluded_datanodes.end(),
+								datanode);
+
+							datanodes.push_back(datanode);
+						if (it == excluded_datanodes.end()) {
+							// This datanode was not in the excluded list, so
+							// keep it
+							exclude = false;
+						} else {
+							exclude = true;
+						}
+					} else {
+						exclude = false;
+					}
+
+					if (!exclude) {
+						// TODO: check if enough free space
+						// TODO: check number of transmissions
+						LOG(INFO) << "Found live and non-excluded dn: " << datanode;
+						datanodes.push_back(datanode);
+					}
 				}
+
 				if (datanodes.size() == replication_factor) {
 					LOG(INFO) << CLASS_NAME << "Found " << replication_factor << " datanodes";
 					break;
+					// TODO: should we pick the first n eligible dns, or should
+					// we check all dns and pick the best n?
 				}
 			}
+
+			// LOG(INFO) << CLASS_NAME << "Live DNs after excluding those with existing replicas: " << live_data_nodes;
 		} else {
 			LOG(ERROR) << CLASS_NAME << "Failed to get list of datanodes at " + HEALTH + " " << error_code;
 			return false;
