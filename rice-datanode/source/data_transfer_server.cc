@@ -148,39 +148,13 @@ void TransferServer::processWriteRequest(tcp::socket& sock) {
 		dn->blockReceived(header.baseheader().block().blockid(), bytesInBlock);
 	}
 
-    // Replication, write block data to the next target
-    DatanodeInfoProto next_target = targets[0];
-    targets.erase(targets.begin());
-
-    //TODO set up socket to next_target
-    //tcp::socket target_sock; // initialize
-
-    //TODO modify OpWriteBlockProto targets, src
-    // Write the OpWriteBlockProto to the next_target
-    std::string write_req;
-    proto.SerializeToString(&write_req);
-    /*if (rpcserver::write_delimited_proto(target_sock, write_req)) {
-        LOG(INFO) << "Successfully wrote write request to DN target";
-    } else {
-        ERROR_AND_RETURN("Could not forward the write request to next DN");
-        //TODO move to next target in list instead of returning
-    }*/
-    
-    // Receive the BlockOpResponseProto
-    BlockOpResponseProto write_resp;
-    /*if (rpcserver::read_delimited_proto(target_sock, write_resp)) {
-        LOG(INFO) << "Successfully received write response from DN target";
-    } else {
-        ERROR_AND_RETURN("Could not receive write response from next DN");
-    }*/
-
-    //TODO send packets of block_data to the next_target, receive acks
-    // Packet structure:
-    //  uint32_t payload_len
-    //  uint16_t header_len
-    //  PacketHeaderProto packet_header
-    //  checksum
-    //  data_payload
+	// Replication, write block data to the next target, by placing targets on replication queue
+	for (auto target = targets.begin(); target != targets.end(); ++target) {
+		//TODO place this target on ZK replication queue for this block
+		std::string target_ip = target->id().ipaddr();
+		std::string target_uuid = target->id().datanodeuuid();
+		::google::protobuf::uint32 target_port = target->id().xferport();
+	}	
 
 	LOG(INFO) << "Wait for acks to finish. ";
 	ackThread.join();
