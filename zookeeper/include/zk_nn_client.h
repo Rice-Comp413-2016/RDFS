@@ -74,6 +74,7 @@ class ZkNnClient : public ZkClientCommon {
 		// TODO lil doc string and move to private (why does this cause compiler problems?)
 		bool add_block(const std::string& fileName, u_int64_t& block_id, std::vector<std::string> & dataNodes, uint32_t replication_factor);
 		bool find_datanode_for_block(std::vector<std::string>& datanodes, const std::uint64_t blockId, uint32_t replication_factor, bool newBlock = false);
+		bool find_datanode_with_block(const std::string &block_uuid_str, std::string &datanode, int &error_code);
 		bool rename_file(std::string src, std::string dst);
 
 		/**
@@ -129,7 +130,7 @@ class ZkNnClient : public ZkClientCommon {
 		 */
 		void delete_node_wrapper(std::string& path, DeleteResponseProto& response);
 
-        bool destroy_helper(const std::string& path, std::vector<std::shared_ptr<ZooOp>>& ops);
+		bool destroy_helper(const std::string& path, std::vector<std::shared_ptr<ZooOp>>& ops);
 
 		/**
 		 * Creates 'num_replicas' many work items for the given 'block_uuid' in
@@ -156,16 +157,16 @@ class ZkNnClient : public ZkClientCommon {
 		 */
 		bool buildDatanodeInfoProto(DatanodeInfoProto *dn_info, const std::string &data_node);
 
-        /**
-         * Builds an empty token. Returns true on success.
-         */
-        bool buildTokenProto(hadoop::common::TokenProto* token);
+		/**
+		 * Builds an empty token. Returns true on success.
+		 */
+		bool buildTokenProto(hadoop::common::TokenProto* token);
 
-        /**
-         * Build an extended block proto. Returns true on success
-         */
-        bool buildExtendedBlockProto(ExtendedBlockProto* eb, const std::uint64_t& block_id,
-                                            const uint64_t& block_size);
+		/**
+		 * Build an extended block proto. Returns true on success
+		 */
+		bool buildExtendedBlockProto(ExtendedBlockProto* eb, const std::uint64_t& block_id,
+											const uint64_t& block_size);
 
 		/**
 		 * Returns the current timestamp in milliseconds

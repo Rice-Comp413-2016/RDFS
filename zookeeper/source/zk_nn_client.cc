@@ -9,6 +9,7 @@
 #include <chrono>
 #include <sys/time.h>
 #include "zk_lock.h"
+#include "zk_queue.h"
 
 #include "hdfs.pb.h"
 #include "ClientNamenodeProtocol.pb.h"
@@ -533,9 +534,9 @@ namespace zkclient{
 
 			LOG(INFO) << CLASS_NAME << "Getting datanode locations for block: " << "/block_locations/" + std::to_string(block_id);
 
-			if (!zk->get_children("/block_locations/" + std::to_string(block_id), data_nodes, error_code)) {
-				LOG(ERROR) << CLASS_NAME << "Failed getting datanode locations for block: " << "/block_locations/" + std::to_string(block_id) << " with error: " << error_code;
-			}
+			/* if (!zk->get_children(BLOCK_LOCATIONS + std::to_string(block_id), data_nodes, error_code)) { */
+				/* LOG(ERROR) << CLASS_NAME << "Failed getting datanode locations for block: " << "/block_locations/" + std::to_string(block_id) << " with error: " << error_code; */
+			/* } */
 
 			LOG(INFO) << CLASS_NAME << "Found block locations " << data_nodes.size();
 
@@ -897,23 +898,53 @@ namespace zkclient{
 		data.resize(sizeof(u_int64_t));
 		memcpy(&data[0], &block_uuid, sizeof(u_int64_t));
 
-		for (auto dn_id : datanodes) {
+		for (auto dest_dn_id : datanodes) {
 			// The path of the sequential node, ends in "-"
-			std::string replicate_block_path = WORK_QUEUES + REPLICATE_BACKSLASH + dn_id + "/block-";
+			std::string replicate_q_path = WORK_QUEUES + REPLICATE_BACKSLASH + dest_dn_id;
 
-			// Create an item on the replica queue for this block replica on the given datanode
-			std::string new_path;
-			if (!zk->create_sequential(replicate_block_path,
-									   data,
-									   new_path,
-									   false,
-									   error_code)) {
-				LOG(ERROR) << CLASS_NAME << "Failed to create_seq: " << replicate_block_path;
+			std::string pushed_path;
+			// Create an item on the dest_dn's replica queue for this block
+			if (!push(zk, replicate_q_path, data, pushed_path, error_code)) {
+				LOG(ERROR) << "Failed to add replicate reqeust to queue: " << replicate_q_path;
 				return false;
 			}
-			LOG(INFO) << CLASS_NAME << "Created: " << new_path;
+
+			// Get the ID of a DN which already has this block
+			std::string src_dn_id;
+			if (!find_datanode_with_block(block_uuid_str, src_dn_id, error_code)) {
+				LOG(ERROR) << "Failed to find datanode with existing replica for block: " << block_uuid_str;
+				return false;
+			}
+			std::string src_dn_path = pushed_path + "/" + src_dn_id;
+
+			// Create a child of the replication queue item indicating which dn
+			// to get the block data from
+			if (!zk->create(src_dn_path, ZKWrapper::EMPTY_VECTOR, error_code, false)) {
+				LOG(ERROR) << CLASS_NAME << "Failed to create: " << src_dn_path;
+				return false;
+			}
+			LOG(INFO) << "Created: " << src_dn_path;
 		}
 
+		return true;
+	}
+
+	bool ZkNnClient::find_datanode_with_block(const std::string &block_uuid_str, std::string &datanode, int &error_code) {
+		std::vector<std::string> datanodes;
+		std::string block_loc_path = BLOCK_LOCATIONS + block_uuid_str;
+
+		if (!zk->get_children(block_loc_path, datanodes, error_code)) {
+			LOG(ERROR) << "Failed to get children of: " << block_loc_path;
+			return false;
+		}
+		if (datanodes.size() < 1) {
+			LOG(ERROR) << "There are no datanodes with a replica of block " << block_uuid_str;
+			// TODO: set error_code
+			return false;
+		}
+
+		datanode = datanodes[0];
+		LOG(INFO) << "Found DN: " << datanode << " which has a replica of: " << block_uuid_str;
 		return true;
 	}
 
