@@ -111,7 +111,8 @@ namespace zkclient{
 	    if (children.size() >= MIN_REPLICATION){
 		return true;						
 	    }
-	    return false;							    }
+	    return false;
+	}
 	return false;
     }
 
