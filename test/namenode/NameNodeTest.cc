@@ -82,6 +82,8 @@ namespace {
 			LOG(INFO) << "Returned datanode " << datanode;
 		}
 		ASSERT_EQ(rep_factor, datanodes.size());
+		// Check that the DN with fewer transmists was returned
+		ASSERT_EQ("localhost:2182", datanodes[0]);
 	}
 
 	TEST_F(NamenodeTest, findDataNodesWithReplicas){
