@@ -28,6 +28,23 @@ typedef struct
 	char group[256];
 }FileZNode;
 
+struct TargetDN
+{
+	std::string dn_id;
+	uint64_t free_bytes;	//free space on disk
+	uint32_t num_xmits;		//current number of xmits
+
+    TargetDN(std::string id, int bytes, int xmits) : dn_id(id), free_bytes(bytes), num_xmits(xmits)
+    {
+    }
+
+    bool operator<(const struct TargetDN& other) const
+    {
+        // Minimizes num_xmits
+        return num_xmits > other.num_xmits;
+    }
+};
+
 using namespace hadoop::hdfs;
 
 /**
@@ -182,6 +199,7 @@ class ZkNnClient : public ZkClientCommon {
 		const int IS_DIR = 1;
 		// TODO: Should eventually be read from a conf file
 		const int ACK_TIMEOUT = 600000; // in millisecons, 10 minute timeout when waiting for replication acknowledgements
+		const int BLOCKSIZE = 64; // TODO: Is this a const or should this be read for each block?
 
 };
 
