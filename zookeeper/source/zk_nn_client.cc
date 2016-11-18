@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include "zk_lock.h"
 #include "zk_queue.h"
+#include "zk_dn_client.h"
 
 #include "hdfs.pb.h"
 #include "ClientNamenodeProtocol.pb.h"
@@ -706,6 +707,16 @@ namespace zkclient{
 					}
 
 					if (!exclude) {
+						std::string dn_stats_path = HEALTH_BACKSLASH + datanode + STATS;
+						std::vector<uint8_t> stats_payload;
+						stats_payload.resize(sizeof(DataNodePayload));
+						if (!zk->get(dn_stats_path, stats_payload, error_code, sizeof(DataNodePayload))) {
+							LOG(ERROR) << CLASS_NAME << "Failed to get " << dn_stats_path;
+							return false;
+						}
+						DataNodePayload stats = DataNodePayload();
+						memcpy(&stats, &stats_payload[0], sizeof(DataNodePayload));
+						LOG(INFO) << "DN stats, disk_bytes: " << unsigned(stats.disk_bytes) << " mem_bytes: " << unsigned(stats.mem_bytes);
 						// TODO: check if enough free space
 						// TODO: check number of transmissions
 						LOG(INFO) << "Found live and non-excluded dn: " << datanode;
@@ -942,6 +953,7 @@ namespace zkclient{
 			// TODO: set error_code
 			return false;
 		}
+		// TODO: Pick the datanode which has fewer transmits
 
 		datanode = datanodes[0];
 		LOG(INFO) << "Found DN: " << datanode << " which has a replica of: " << block_uuid_str;
