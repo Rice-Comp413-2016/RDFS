@@ -186,6 +186,17 @@ class ZkNnClient : public ZkClientCommon {
 		bool buildExtendedBlockProto(ExtendedBlockProto* eb, const std::uint64_t& block_id,
 											const uint64_t& block_size);
 
+
+		/**
+		 * Watches /health for new datanodes, attaches watchers to new datanodes' heartbeats.
+		 */
+		static void watcher_health(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
+		
+		/**
+		 * Watches datanode heartbeats.
+		 */
+		static void watcher_health_child(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
+
 		/**
 		 * Returns the current timestamp in milliseconds
 		 */
