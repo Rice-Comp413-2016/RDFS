@@ -104,19 +104,19 @@ namespace zkclient{
 
 
 	bool ZkNnClient::previousBlockComplete(uint64_t prev_id) {
-	int error_code;
-	/* this value will eventually be read from config file */
-	int MIN_REPLICATION = 1;
-	std::vector<std::string> children;
-	std::string block_id_str = std::to_string(prev_id);
-	if (zk->get_children(BLOCK_LOCATIONS + block_id_str, children, error_code)) {
-		if (children.size() >= MIN_REPLICATION){
-		return true;
+		int error_code;
+		/* this value will eventually be read from config file */
+		int MIN_REPLICATION = 1;
+		std::vector<std::string> children;
+		std::string block_id_str = std::to_string(prev_id);
+		if (zk->get_children(BLOCK_LOCATIONS + block_id_str, children, error_code)) {
+			if (children.size() >= MIN_REPLICATION){
+			return true;
+			}
+			return false;
 		}
-		return false;
-	}
-	return false;
-	}
+		return true;
+  }
 
 	bool ZkNnClient::add_block(AddBlockRequestProto& req, AddBlockResponseProto& res) {
 
