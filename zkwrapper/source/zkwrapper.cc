@@ -339,6 +339,30 @@ bool ZKWrapper::get(const std::string &path,
 	return true;
 }
 
+bool ZKWrapper::get_info(const std::string &path,
+	 struct Stat &stat,
+	 int &error_code) const {
+
+	std::vector<std::uint8_t> data;
+	int len = MAX_PAYLOAD;
+	data.resize(len);
+
+	error_code = zoo_get(zh,
+			prepend_zk_root(path).c_str(),
+			0,
+			reinterpret_cast<char *>(data.data()),
+			&len,
+			&stat);
+	if (error_code != ZOK) {
+		LOG(ERROR) << CLASS_NAME <<  "get on " << path << " failed";
+		print_error(error_code);
+		return false;
+	}
+	data.resize(len);
+	return true;
+}
+
+
 bool ZKWrapper::set(const std::string &path,
 		const std::vector <std::uint8_t> &data,
 		int &error_code,
