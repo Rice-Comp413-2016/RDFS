@@ -13,6 +13,9 @@ using namespace zkclient;
 class ZKDNClientTest : public ::testing::Test{
 protected:
         virtual void SetUp(){
+	        system("sudo ~/zookeeper/bin/zkServer.sh start");
+	        system("sudo ~/zookeeper/bin/zkCli.sh rmr /testing");
+
                 block_id = 12345;
                 block_size = 54321;
                 xferPort = 50010;
@@ -25,6 +28,8 @@ protected:
         }
         virtual void TearDown() {
                 system("sudo ~/zookeeper/bin/zkCli.sh rmr /testing");
+	        //system("sudo ~/zookeeper/bin/zkCli.sh rmr /testing");
+	        system("sudo ~/zookeeper/bin/zkServer.sh stop");
         }
         uint64_t block_id;
         uint64_t block_size;
