@@ -236,19 +236,3 @@ namespace {
 	}
 
 }
-
-int main(int argc, char **argv) {
-	// Start up zookeeper
-	system("sudo ~/zookeeper/bin/zkServer.sh stop");
-	system("sudo ~/zookeeper/bin/zkServer.sh start");
-
-	// Initialize and run the tests
-	::testing::InitGoogleTest(&argc, argv);
-	int res = RUN_ALL_TESTS();
-	// NOTE: You'll need to scroll up a bit to see the test results
-
-	// Remove test files and shutdown zookeeper
-	system("sudo ~/zookeeper/bin/zkCli.sh rmr /testing");
-	system("sudo ~/zookeeper/bin/zkServer.sh stop");
-	return res;
-}
