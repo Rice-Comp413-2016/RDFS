@@ -382,11 +382,6 @@ namespace zkclient{
 			res.set_result(false);
 			return;
 		}
-		if (file_blocks.size() == 0) {
-			LOG(ERROR) << "No blocks found for file " << ZookeeperPath(src);
-			res.set_result(false);
-			return;
-		}
 		// TODO: This loop could be two multi-ops instead
 		for (auto file_block : file_blocks) {
 			auto data = std::vector<std::uint8_t>();
