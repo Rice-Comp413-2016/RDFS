@@ -309,7 +309,7 @@ namespace zkclient{
 
         int err;
         auto rootless_path = zk->removeZKRoot(path);
-        LOG(INFO) << "handling delete watcher for " << rootless_path;
+        LOG(INFO) << "Handling delete watcher for " << rootless_path;
         std::vector<std::string> work_items;
 
         if (!zk->get_children(rootless_path, work_items, err)){
@@ -317,10 +317,7 @@ namespace zkclient{
             return;
         }
 
-        LOG(INFO) << "STUART: WORK ITEMS " << work_items.size();
-
         for (auto &block : work_items) {
-			LOG(INFO) << "STUART: WORKING ON " << block;
 			// get block id
 			std::vector<std::uint8_t> block_id_vec(sizeof(std::uint64_t));
 			std::uint64_t block_id;
@@ -331,13 +328,15 @@ namespace zkclient{
 			memcpy(&block_id, &block_id_vec[0], sizeof(uint64_t));
             if (!server->rmBlock(block_id)){
                 LOG(ERROR) << CLASS_NAME << "Block is not in fs " << block;
+            } else {
+                LOG(INFO) << "Deleted block " << block_id << " from datanode " << block_id;
             }
             // just delete the thing from the queue
             ops.push_back(zk->build_delete_op(util::concat_path(rootless_path, block)));
         }
 		std::vector<zoo_op_result> results;
         if (!zk->execute_multi(ops, results, err)){
-            LOG(ERROR) << "Failed to delete sucessfully completed delete commands!";
+            LOG(ERROR) << "Failed to execute sucessfully completed delete commands!";
         }
 	}
 

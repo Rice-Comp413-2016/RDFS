@@ -312,7 +312,6 @@ namespace zkclient{
     bool ZkNnClient::abandon_block(AbandonBlockRequestProto& req, AbandonBlockResponseProto& res) {
         const std::string& file_path = req.src();
         const std::string& holder = req.holder(); // I believe this is the lease holder?
-        LOG(INFO) << CLASS_NAME << "Attempting to abandon block";
 
         //uint64 generationStamp (as well as the optional uint64 numBytes)
         const ExtendedBlockProto& block = req.b();
@@ -320,13 +319,8 @@ namespace zkclient{
         const uint64_t blockId = block.blockid();
         const uint64_t generation_stamp = block.generationstamp();
         LOG(INFO) << CLASS_NAME << "Requested to abandon block: " << blockId;
-        LOG(INFO) << CLASS_NAME << "This block is in pool " << poolId;
-        LOG(INFO) << CLASS_NAME << "Its generation stamp is " << generation_stamp;
 
         const std::string block_id_str = std::to_string(blockId);
-        LOG(INFO) << CLASS_NAME << "...Also, converted blockid to a string: " << block_id_str;
-
-        LOG(INFO) << CLASS_NAME << "Checking file exists: " << file_path;
 
         //Double check the file exists first
         FileZNode znode_data;
@@ -334,12 +328,12 @@ namespace zkclient{
             LOG(ERROR) << CLASS_NAME << "Requested file " << file_path << " does not exist";
             return false;
         }
+
         read_file_znode(znode_data, file_path);
         if (znode_data.filetype != IS_FILE) { // Assert that the znode we want to modify is a file
             LOG(ERROR) << CLASS_NAME << "Requested file " << file_path << " is not a file";
             return false;
         }
-        LOG(INFO) << CLASS_NAME << "File exists. Building multi op to abandon block";
 
         // Find the last block
         int error_code;
@@ -356,9 +350,7 @@ namespace zkclient{
         auto undo_ack_op = zk->build_delete_op("/work_queues/wait_for_acks/" + block_id_str);
 
         std::vector<std::string> datanodes;
-        if (!find_all_datanodes_with_block(block_id_str, datanodes, error_code)) {
-            LOG(ERROR) << CLASS_NAME << "Could not find datandoes with the block";
-        }
+        find_all_datanodes_with_block(block_id_str, datanodes, error_code);
 
         std::vector<std::shared_ptr<ZooOp>> ops;
         ops.push_back(undo_seq_file_block_op);
@@ -369,6 +361,7 @@ namespace zkclient{
 
         // push delete commands onto ops
         for (auto& dn : datanodes){
+            LOG(INFO) << "Deleting block from datanode " << dn;
             auto delete_queue = util::concat_path(DELETE_QUEUES, dn);
             auto delete_item = util::concat_path(delete_queue, "block-");
             ops.push_back(zk->build_create_op(delete_item, block_vec, ZOO_SEQUENCE));
@@ -379,13 +372,9 @@ namespace zkclient{
         auto results = std::vector <zoo_op_result>();
         int err;
 
-        LOG(INFO) << CLASS_NAME << "Built multi op. Executing multi op to abandon block... " << file_path;
         if (!zk->execute_multi(ops, results, err)) {
             LOG(ERROR) << CLASS_NAME << "Failed to write the abandon_block multiop, ZK state was not changed";
             ZKWrapper::print_error(err);
-            for (int i = 0; i < results.size(); i++) {
-                LOG(ERROR) << "\t MULTIOP #" << i << " ERROR CODE: " << results[i].err;
-            }
             return false;
         }
     	return true;
@@ -442,7 +431,7 @@ namespace zkclient{
         int error_code;
         bool exists;
 
-        LOG(INFO) << "DataNode deleted a block with UUID " << std::to_string(uuid);
+        LOG(INFO) << "Deleting metadata for block " << std::to_string(uuid) << " and dn " << id;
 
         auto ops = std::vector<std::shared_ptr<ZooOp>>();
 
@@ -477,7 +466,7 @@ namespace zkclient{
     }
 
     bool ZkNnClient::destroy_helper(const std::string& path, std::vector<std::shared_ptr<ZooOp>>& ops){
-        LOG(INFO) << "Destroying " << path;
+        LOG(INFO) << "Deleting file at " << path;
         if (!file_exists(path)){
             LOG(ERROR) << path << " does not exist";
             return false;
@@ -503,7 +492,7 @@ namespace zkclient{
                 LOG(ERROR) << path << " is under construction, so it cannot be deleted.";
                 return false;
             }
-            for (auto& child : children){
+            for (auto& child : children) {
                 auto child_path = util::concat_path(path, child);
                 child_path = ZookeeperPath(child_path);
                 ops.push_back(zk->build_delete_op(child_path));
@@ -521,6 +510,7 @@ namespace zkclient{
                 }
                 // push delete commands onto ops
                 for (auto& dn : datanodes){
+                    LOG(INFO) << "Deleting file from " << dn;
                     auto delete_queue = util::concat_path(DELETE_QUEUES, dn);
                     auto delete_item = util::concat_path(delete_queue, "block-");
                     ops.push_back(zk->build_create_op(delete_item, block_vec, ZOO_SEQUENCE));
