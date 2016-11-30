@@ -37,6 +37,13 @@ class ConfigReader {
 		 */
 		bool getBool(std::string key);
 
+		/**
+		 * Read a config file in the format of hdfs-default.xml, and add all
+		 * of the (name, value) pairs to the conf maps
+		 * @param filename the name of an xml config file to process
+		 */
+		void processConfigFile(const char* filename);
+
 	private:
 		// list of config files to read
 		static const char* HDFS_DEFAULTS_CONFIG;
