@@ -47,11 +47,16 @@ class NativeFS{
 		 */
 		bool writeBlock(uint64_t, const std::string&);
 		/**
-		 * Get the contents of the block with given id. If successful, return
-		 * true and set string reference to retreived contents. Otherwise
-		 * return false.
+		 * Get the the block info for the block with the given id.
+		 * If successful, return true and set block_info reference to 
+		 * retreived contents. Otherwise return false.
 		 */
-		bool getBlock(uint64_t, std::string&);
+		bool getBlockInfo(uint64_t id, block_info& info);
+		/**
+		 * Get the contents of the disk for len bytes starting at the given offset.
+		 * Sets bytes to the returned bytes
+		 */
+		void getBytes(uint64_t offset, uint32_t len, std::string& bytes);
 		/**
 		 * Delete contents of provided block id from this datanode. Return true
 		 * if delete successful, false otherwise (block id not found).

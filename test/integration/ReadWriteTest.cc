@@ -63,6 +63,7 @@ int main(int argc, char **argv) {
 	system("sudo /home/vagrant/zookeeper/bin/zkServer.sh stop");
 	system("sudo /home/vagrant/zookeeper/bin/zkServer.sh start");
 	system("truncate _RW_TEST_FS -s 1000000000");
+	sleep(3);
 
 	zkclient::ZkNnClient *nncli;
 	ClientNamenodeTranslator *nn_translator;

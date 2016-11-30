@@ -54,6 +54,7 @@ class TransferServer {
 		std::shared_ptr<zkclient::ZkClientDn> dn;
 
 		mutable std::mutex m;
+		mutable std::mutex readFS;
 		std::condition_variable cv;
 
 		bool receive_header(tcp::socket& sock, uint16_t* version, unsigned char* type);

@@ -27,9 +27,11 @@ TEST_F(NativeFSTest, CanGetBlock) {
 	NativeFS filesystem(backing);
 	bool write_success = filesystem.writeBlock(2, blk);
 	ASSERT_EQ(true, write_success);
+	nativefs::block_info info;
 	std::string newBlock;
-	bool success = filesystem.getBlock(2, newBlock);
+	bool success = filesystem.getBlockInfo(2, info);
 	ASSERT_EQ(true, success);
+	filesystem.getBytes(info.offset, info.len, newBlock);
 	ASSERT_EQ(blk[0], newBlock[0]);
 }
 
@@ -61,9 +63,11 @@ TEST_F(NativeFSTest, CanCoalesce) {
 		}
 		// Now write a few big blocks.
 		for (int i = 0; i < (DISK_SIZE - RESERVED_SIZE) / MAX_BLOCK_SIZE; i++) {
+			nativefs::block_info info;
 			std::string readblk;
 			ASSERT_TRUE(filesystem.writeBlock(i, fullblk));
-			ASSERT_TRUE(filesystem.getBlock(i, readblk));
+			ASSERT_TRUE(filesystem.getBlockInfo(i, info));
+			filesystem.getBytes(info.offset, info.len, readblk);
 			// Make sure contents are the same.
 			ASSERT_EQ(fullblk, readblk);
 		}
