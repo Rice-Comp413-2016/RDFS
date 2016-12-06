@@ -52,8 +52,20 @@ cat > /home/vagrant/hadoop3/etc/hadoop/hdfs-site.xml <<EOF
     </property>
 </configuration>
 EOF
+
+# add custom config files to Hadoop
+cat /home/vagrant/rdfs/config/hdfs-site.xml > /home/vagrant/hadoop/etc/hadoop/hdfs-site.xml
+cat /home/vagrant/rdfs/config/core-site.xml > /home/vagrant/hadoop/etc/hadoop/core-site.xml
+
 # add hadoop to path
 echo 'export PATH=/home/vagrant/hadoop/bin:$PATH' >> /home/vagrant/.bashrc
+
+# add hadoop to classpath
+echo 'export CLASSPATH=/home/vagrant/hadoop/share/hadoop/hdfs/*:/home/vagrant/hadoop/share/hadoop/common/*' >> /home/vagrant/.bashrc
+
+# add diff detector to path
+echo 'python /home/vagrant/rdfs/utility/provision_diff.py' >> /home/vagrant/.bashrc
+
 
 # Download hadoop 2.7.3 as well, but do not set as default.
 wget --quiet http://mirror.cc.columbia.edu/pub/software/apache/hadoop/common/hadoop-2.7.3/hadoop-2.7.3.tar.gz
@@ -62,6 +74,8 @@ mv hadoop-2.7.3 /home/vagrant/hadoop2
 rm hadoop-2.7.3.tar.gz
 cp /home/vagrant/hadoop3/etc/hadoop/core-site.xml /home/vagrant/hadoop2/etc/hadoop/core-site.xml
 cp /home/vagrant/hadoop3/etc/hadoop/hdfs-site.xml /home/vagrant/hadoop2/etc/hadoop/hdfs-site.xml
+
+
 
 # Setup Apache zookeeper
 wget --quiet http://mirror.olnevhost.net/pub/apache/zookeeper/zookeeper-3.4.9/zookeeper-3.4.9.tar.gz
@@ -151,6 +165,7 @@ wget --quiet https://github.com/Rice-Comp413-2016/RDFS/raw/demo-setup/demo_scrip
 wget --quiet https://github.com/Rice-Comp413-2016/RDFS/raw/demo-setup/demo_script/student.csv
 wget --quiet https://github.com/Rice-Comp413-2016/RDFS/raw/demo-setup/demo_script/csv_generator.py
 cd /home/vagrant
+
 
 # Put everything under /home/vagrant and /home/vagrant/.ssh.
 chown -R vagrant:vagrant /home/vagrant/*
