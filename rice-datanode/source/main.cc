@@ -28,18 +28,36 @@ int main(int argc, char* argv[]) {
 	unsigned short xferPort = 50010;
 	unsigned short ipcPort = 50020;
 	std::string backingStore("/dev/sdb");
-	if (argc >= 2) {
-		xferPort = std::atoi(argv[1]);
+
+	// usage: namenode ip ip ip [port], optional
+	//short port = 2181;
+	std::string ip_port_pairs("");
+
+	if (argc < 5) {
+		LOG(INFO) << "Bad arguments supplied, exiting";
+		return 1;
 	}
-	if (argc >= 3) {
-		ipcPort = std::atoi(argv[2]);
+
+	short port = std::atoi(argv[4]);
+	std::string comma(",");
+	std::string colon(":");
+	std::string pstr(std::to_string(port));
+	ip_port_pairs += argv[1] + colon + pstr + comma + argv[2] + colon + pstr + comma + argv[3] + colon + pstr;
+	LOG(INFO) << "IP and port pairs are " << ip_port_pairs;
+
+	if (argc >= 6) {
+		xferPort = std::atoi(argv[5]);
 	}
-	if (argc >= 4) {
-		backingStore = argv[3];
+	if (argc >= 7) {
+		ipcPort = std::atoi(argv[6]);
+	}
+	if (argc >= 8) {
+		backingStore = argv[7];
 	}
 	auto fs = std::make_shared<nativefs::NativeFS>(backingStore);
 	uint64_t total_disk_space = fs->getTotalSpace();
-	auto dncli = std::make_shared<zkclient::ZkClientDn>("127.0.0.1", "localhost:2181", total_disk_space, ipcPort, xferPort); // TODO: Change the datanode id
+	// TODO: Change the datanode id
+	auto dncli = std::make_shared<zkclient::ZkClientDn>("127.0.0.1", ip_port_pairs, total_disk_space, ipcPort, xferPort);
 	ClientDatanodeTranslator translator(ipcPort);
 	TransferServer transfer_server(xferPort, fs, dncli);
 	daemon_thread::DaemonThreadFactory factory;

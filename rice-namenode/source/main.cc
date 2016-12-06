@@ -21,11 +21,27 @@ int main(int argc, char* argv[]) {
 	el::Loggers::addFlag(el::LoggingFlag::LogDetailedCrashReason);
 
 	asio::io_service io_service;
+
+	// usage: namenode ip ip ip [port], optional
 	short port = 5351;
-	if (argc == 2) {
-		port = std::atoi(argv[1]);
+	std::string ip_port_pairs("");
+
+	if (argc == 5 || argc == 4) {
+		if (argc == 5) {
+			port = std::atoi(argv[4]);
+		}
+		std::string comma(",");
+		std::string colon(":");
+		std::string pstr(std::to_string(port));
+		ip_port_pairs += argv[1] + colon + pstr + comma + argv[2] + colon + pstr + comma + argv[3] + colon + pstr;
+		LOG(INFO) << "IP and port pairs are " << ip_port_pairs;
+	} else {
+		/* bad args */
+		LOG(INFO) << "Bad arguments supplied, exiting";
+		return 1;
 	}
-	zkclient::ZkNnClient nncli("localhost:2181");
+
+	zkclient::ZkNnClient nncli(ip_port_pairs);
 	nncli.register_watches();
 	std::cout << "Namenode is starting" << std::endl;
 	ClientNamenodeTranslator translator(port, nncli);
