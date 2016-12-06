@@ -54,6 +54,11 @@ int main(int argc, char* argv[]) {
 	if (argc >= 8) {
 		backingStore = argv[7];
 	}
+	if (argc >= 7) {
+		zk_ip_port_1 = argv[4];
+		zk_ip_port_2 = argv[5];
+		zk_ip_port_3 = argv[6];
+	}
 	auto fs = std::make_shared<nativefs::NativeFS>(backingStore);
 	uint64_t total_disk_space = fs->getTotalSpace();
 	// TODO: Change the datanode id
