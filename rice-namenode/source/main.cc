@@ -8,7 +8,6 @@
 #include <easylogging++.h>
 #include "zk_nn_client.h"
 #include "ClientNamenodeProtocolImpl.h"
-#include "HaServiceProtocolImpl.h"
 
 INITIALIZE_EASYLOGGINGPP
 
@@ -25,6 +24,7 @@ int main(int argc, char* argv[]) {
 
 	// usage: namenode ip ip ip [port], optional
 	short port = 5351;
+	short zk_port = 2181;
 	std::string ip_port_pairs("");
 
 	if (argc == 5 || argc == 4) {
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 		}
 		std::string comma(",");
 		std::string colon(":");
-		std::string pstr(std::to_string(port));
+		std::string pstr(std::to_string(zk_port));
 		ip_port_pairs += argv[1] + colon + pstr + comma + argv[2] + colon + pstr + comma + argv[3] + colon + pstr;
 		LOG(INFO) << "IP and port pairs are " << ip_port_pairs;
 	} else {
@@ -46,8 +46,5 @@ int main(int argc, char* argv[]) {
 	nncli.register_watches();
 	std::cout << "Namenode is starting" << std::endl;
 	ClientNamenodeTranslator translator(port, nncli);
-	// high availability translator
-	RPCServer server = translator.getRPCServer();
-	ha_service_translator::HaServiceTranslator ha_service_translator(&server, nncli, port);
-	server.serve(io_service);
+	translator.getRPCServer().serve(io_service);
 }

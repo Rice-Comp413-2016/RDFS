@@ -85,3 +85,7 @@ sudo rice-namenode/namenode
 
 # Allow us to write to /dev/sdb.
 sudo chown :ubuntu /dev/sdb
+
+# Signify that configuration is done
+cd /home/ubuntu/env
+sudo touch CONFIGURATION_DONE
