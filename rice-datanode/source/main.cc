@@ -28,7 +28,8 @@ int main(int argc, char* argv[]) {
 	unsigned short xferPort = 50010;
 	unsigned short ipcPort = 50020;
 	std::string backingStore("/dev/sdb");
-	std::string zk_ip_port("localhost:2181");
+	std::string zk_ip_port_1("localhost:2181"); 
+	std::string zk_ip_port_2, zk_ip_port_3;
 	if (argc >= 2) {
 		xferPort = std::atoi(argv[1]);
 	}
@@ -38,12 +39,15 @@ int main(int argc, char* argv[]) {
 	if (argc >= 4) {
 		backingStore = argv[3];
 	}
-	if (argc >= 5) {
-		zk_ip_port = argv[4];
+	if (argc >= 7) {
+		zk_ip_port_1 = argv[4];
+		zk_ip_port_2 = argv[5];
+		zk_ip_port_3 = argv[6];
 	}
 	auto fs = std::make_shared<nativefs::NativeFS>(backingStore);
 	uint64_t total_disk_space = fs->getTotalSpace();
-	auto dncli = std::make_shared<zkclient::ZkClientDn>("127.0.0.1", zk_ip_port, total_disk_space, ipcPort, xferPort); // TODO: Change the datanode id
+	auto dncli = std::make_shared<zkclient::ZkClientDn>("127.0.0.1", zk_ip_port_1, total_disk_space, ipcPort, xferPort); // TODO: Change the datanode id
+	//TODO add the three ips to ZK
 	ClientDatanodeTranslator translator(ipcPort);
 	TransferServer transfer_server(xferPort, fs, dncli);
 	daemon_thread::DaemonThreadFactory factory;

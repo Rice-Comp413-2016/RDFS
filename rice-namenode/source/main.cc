@@ -22,14 +22,18 @@ int main(int argc, char* argv[]) {
 
 	asio::io_service io_service;
 	short port = 5351;
-	std::string zk_ip_port("localhost:2181");
+	std::string zk_ip_port_1("localhost:2181");
+	std::string zk_ip_port_2, zk_ip_port_3;
 	if (argc >= 2) {
 		port = std::atoi(argv[1]);
 	}
-	if (argc >= 3) {
-		zk_ip_port = argv[2];
+	if (argc >= 5) {
+		zk_ip_port_1 = argv[2];
+		zk_ip_port_2 = argv[3];
+		zk_ip_port_3 = argv[4];
 	}
-	zkclient::ZkNnClient nncli(zk_ip_port);
+	zkclient::ZkNnClient nncli(zk_ip_port_1);
+	//TODO add in the other ZK ips to ZK
 	nncli.register_watches();
 	std::cout << "Namenode is starting" << std::endl;
 	ClientNamenodeTranslator translator(port, nncli);
