@@ -1043,7 +1043,7 @@ namespace zkclient{
                 // no return because we still want the client to write to some datanodes
             }
 
-            while (datanodes.size() < replication_factor && targets.size() > 0) {
+            while (targets.size() > 0) {
                 LOG(INFO) << "DNs size IS : " << datanodes.size();
                 TargetDN target = targets.top();
                 datanodes.push_back(target.dn_id);
