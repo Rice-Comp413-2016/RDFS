@@ -244,14 +244,14 @@ namespace zkclient{
 	}
 
 	bool ZkClientDn::poll_replication_queue() {
-		LOG(INFO) << " poll replication queue";
+		// LOG(INFO) << " poll replication queue";
 		handleReplicateCmds(util::concat_path(REPLICATE_QUEUES, get_datanode_id()));
 		return true;
 	}
 
 	void ZkClientDn::handleReplicateCmds(const std::string& path) {
 		int err;
-		LOG(ERROR) << "handling replicate watcher for " << path;
+		// LOG(ERROR) << "handling replicate watcher for " << path;
 		std::vector<std::string> work_items;
 
 		if (!zk->get_children(path, work_items, err)){

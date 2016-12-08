@@ -141,6 +141,9 @@ void TransferServer::processWriteRequest(tcp::socket& sock) {
 		if (!last_packet && data_len != 0) {
 			block_data += data;
 		}
+
+		LOG(INFO) << "WRITING BLOCK " << data;
+
 		// Wait free queue will return false on failure to insert element. Keep trying until insert works
 		if (!last_packet) {
 			while (!ackQueue.push(p_head)) {
@@ -230,6 +233,8 @@ void TransferServer::processReadRequest(tcp::socket& sock) {
 	if (offset > block.size()) {
 		len = 0;
 	}
+
+	LOG(INFO) << "READING BLOCK " << block;
 
 	uint64_t seq = 0;
 	while (len > 0) {
@@ -457,7 +462,7 @@ bool TransferServer::replicate(uint64_t len, std::string ip, std::string xferpor
 
 bool TransferServer::sendStats() {
 	uint64_t free_space = fs->getFreeSpace();
-    LOG(INFO) << "Sending stats " << free_space;
+    // LOG(INFO) << "Sending stats " << free_space;
     return dn->sendStats(free_space, xmits.fetch_add(0));
 }
 
