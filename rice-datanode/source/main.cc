@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 	//short port = 2181;
 	std::string ip_port_pairs("");
 
-	if (argc < 5) {
+	if (argc < 6) {
 		LOG(INFO) << "Bad arguments supplied, exiting";
 		return 1;
 	}
@@ -47,14 +47,14 @@ int main(int argc, char* argv[]) {
 	ip_port_pairs += argv[1] + colon + pstr + comma + argv[2] + colon + pstr + comma + argv[3] + colon + pstr;
 	LOG(INFO) << "IP and port pairs are " << ip_port_pairs;
 
-	if (argc >= 6) {
-		xferPort = std::atoi(argv[5]);
-	}
 	if (argc >= 7) {
-		ipcPort = std::atoi(argv[6]);
+		xferPort = std::atoi(argv[6]);
 	}
 	if (argc >= 8) {
-		backingStore = argv[7];
+		ipcPort = std::atoi(argv[7]);
+	}
+	if (argc >= 9) {
+		backingStore = argv[8];
 	}
 	LOG(INFO) << "my backingstore is " << backingStore;
 	auto fs = std::make_shared<nativefs::NativeFS>(backingStore);
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     }
 	uint64_t total_disk_space = fs->getTotalSpace();
 
-	auto dncli = std::make_shared<zkclient::ZkClientDn>("54.196.213.186", ip_port_pairs, total_disk_space, ipcPort, xferPort);
+	auto dncli = std::make_shared<zkclient::ZkClientDn>(argv[5], ip_port_pairs, total_disk_space, ipcPort, xferPort);
 	ClientDatanodeTranslator translator(ipcPort);
 	auto transfer_server = std::make_shared<TransferServer>(xferPort, fs, dncli);
     dncli->setTransferServer(transfer_server);
