@@ -217,7 +217,6 @@ void TransferServer::processReadRequest(tcp::socket& sock) {
 
 	uint64_t seq = 0;
 	std::string payload;
-	std::lock_guard<std::mutex> lock(readFS);
 	while (len > 0) {
 		PacketHeaderProto p_head;
 		p_head.set_offsetinblock(offset);
