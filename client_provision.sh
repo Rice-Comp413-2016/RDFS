@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Provisioning the vagrant box for development on RDFS
 
 set -e
