@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
     }
 	uint64_t total_disk_space = fs->getTotalSpace();
 	// TODO: Change the datanode id
-	auto dncli = std::make_shared<zkclient::ZkClientDn>("127.0.0.1", ip_port_pairs, total_disk_space, ipcPort, xferPort);
+	auto dncli = std::make_shared<zkclient::ZkClientDn>("54.196.213.186", ip_port_pairs, total_disk_space, ipcPort, xferPort);
 	ClientDatanodeTranslator translator(ipcPort);
 	auto transfer_server = std::make_shared<TransferServer>(xferPort, fs, dncli);
     dncli->setTransferServer(transfer_server);
