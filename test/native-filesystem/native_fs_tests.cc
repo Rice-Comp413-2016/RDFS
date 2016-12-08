@@ -76,8 +76,8 @@ TEST_F(NativeFSTest, CanCoalesce) {
 int main(int argc, char **argv) {
 	::testing::InitGoogleTest(&argc, argv);
 	::testing::InitGoogleMock(&argc, argv);
-	system("truncate -s 1000000000 _NATIVEFS_TEST_FS");
+	// system("truncate -s 1000000000 _NATIVEFS_TEST_FS");
 	int result = RUN_ALL_TESTS();
-	system("rm -f _NATIVEFS_TEST_FS");
+	// system("rm -f _NATIVEFS_TEST_FS");
 	return result;
 }
