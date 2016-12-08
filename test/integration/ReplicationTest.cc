@@ -42,9 +42,13 @@ namespace {
         auto block_ids = fs0.getKnownBlocks();
         for (auto block_id : block_ids) {
             std::string block0, block1, block2;
-            ASSERT_TRUE(fs0.getBlock(block_id, block0));
-            ASSERT_TRUE(fs1.getBlock(block_id, block1));
-            ASSERT_TRUE(fs2.getBlock(block_id, block2));
+			block_info info0, info1, info2;
+            ASSERT_TRUE(fs0.getBlockInfo(block_id, info0));
+            ASSERT_TRUE(fs1.getBlockInfo(block_id, info1));
+            ASSERT_TRUE(fs2.getBlockInfo(block_id, info2));
+			fs0.getBytes(info0.offset, info0.len, block0);
+			fs1.getBytes(info1.offset, info1.len, block1);
+			fs2.getBytes(info2.offset, info2.len, block2);
             ASSERT_EQ(block0, block1);
             ASSERT_EQ(block1, block2);
         }
