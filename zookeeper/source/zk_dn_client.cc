@@ -15,14 +15,14 @@ namespace zkclient{
 
 	const std::string ZkClientDn::CLASS_NAME = ": **ZkClientDn** : ";
 
-	ZkClientDn::ZkClientDn(const std::string& ip, std::shared_ptr <ZKWrapper> zk_in, uint64_t total_disk_space,
-		const uint32_t ipcPort, const uint32_t xferPort) : ZkClientCommon(zk_in) {
+	ZkClientDn::ZkClientDn(const std::string& ip, std::shared_ptr <ZKWrapper> zk_in,
+		 uint64_t total_disk_space, const uint32_t ipcPort, const uint32_t xferPort) : ZkClientCommon(zk_in) {
 
 		registerDataNode(ip, total_disk_space, ipcPort, xferPort);
 	}
 
-	ZkClientDn::ZkClientDn(const std::string& ip, const std::string& zkIpAndAddress, uint64_t total_disk_space,
-		const uint32_t ipcPort, const uint32_t xferPort) : ZkClientCommon(zkIpAndAddress) {
+	ZkClientDn::ZkClientDn(const std::string& ip, const std::string& zkIpAndAddress,
+		uint64_t total_disk_space, const uint32_t ipcPort, const uint32_t xferPort) : ZkClientCommon(zkIpAndAddress) {
 
 		registerDataNode(ip, total_disk_space, ipcPort, xferPort);
 	}
@@ -35,7 +35,8 @@ namespace zkclient{
 		LOG(INFO) << "DataNode received a block with UUID " << std::to_string(uuid);
 		std::string id = build_datanode_id(data_node_id);
 
-		// Add acknowledgement
+		// We are performing acks right now
+		/*
 		ZKLock queue_lock(*zk.get(), WORK_QUEUES + WAIT_FOR_ACK_BACKSLASH + std::to_string(uuid));
 		if (queue_lock.lock() != 0) {
 			LOG(ERROR) << CLASS_NAME <<  "Failed locking on /work_queues/wait_for_acks/<block_uuid> " << error_code;
@@ -47,7 +48,7 @@ namespace zkclient{
 				LOG(ERROR) << CLASS_NAME << WORK_QUEUES + WAIT_FOR_ACK_BACKSLASH + std::to_string(uuid) << " does not exist";
 				created_correctly = false;
 			}
-			if(!zk->create(WORK_QUEUES + WAIT_FOR_ACK_BACKSLASH + std::to_string(uuid) + "/" + id, ZKWrapper::EMPTY_VECTOR, error_code, false)) {
+			if(!zk->create(WORK_QUEUES + WAIT_FOR_ACK_BACKSLASH + std::to_string(uuid) + "/" + id, ZKWrapper::EMPTY_VECTOR, error_code, true, false)) {
 				LOG(ERROR) << CLASS_NAME <<  "Failed to create wait_for_acks/<block_uuid>/datanode_id " << error_code;
 				created_correctly = false;
 			}
@@ -57,35 +58,41 @@ namespace zkclient{
 			LOG(ERROR) << CLASS_NAME <<  "Failed unlocking on /work_queues/wait_for_acks/<block_uuid> " << error_code;
 			created_correctly = false;
 		}
+	    */
 
 		if (zk->exists(BLOCK_LOCATIONS + std::to_string(uuid), exists, error_code)) {
-			if (exists) {
-				// Write the block size
-				BlockZNode block_data;
-				block_data.block_size = size_bytes;
-				std::vector<std::uint8_t> data_vect(sizeof(block_data));
-				memcpy(&data_vect[0], &block_data, sizeof(block_data));
-				if(!zk->set(BLOCK_LOCATIONS + std::to_string(uuid), data_vect, error_code)) {
-					LOG(ERROR) << CLASS_NAME <<  "Failed writing block size to /block_locations/<block_uuid> " << error_code;
-					created_correctly = false;
-				}
-
-				// Add this datanode as the block's location in block_locations
-				if(!zk->create(BLOCK_LOCATIONS + std::to_string(uuid) + "/" + id, ZKWrapper::EMPTY_VECTOR, error_code, true)) {
-					LOG(ERROR) << CLASS_NAME <<  "Failed creating /block_locations/<block_uuid>/<datanode_id> " << error_code;
-					created_correctly = false;
+			// If the block_location does not yet exist. Flush its path.
+			// If it still does not exist error out.
+			if (!exists) {
+				zk->flush(zk->prepend_zk_root(BLOCK_LOCATIONS + std::to_string(uuid)));
+				if (zk->exists(BLOCK_LOCATIONS + std::to_string(uuid), exists, error_code) || !exists) {
+					LOG(ERROR) << CLASS_NAME << "/block_locations/<block_uuid> did not exist " << error_code;
+					return false;
 				}
 			}
-			else {
-				LOG(ERROR) << CLASS_NAME << "/block_locations/<block_uuid> did not exist " << error_code;
-				return false;
+			// Write the block size
+			BlockZNode block_data;
+			block_data.block_size = size_bytes;
+			std::vector<std::uint8_t> data_vect(sizeof(block_data));
+			memcpy(&data_vect[0], &block_data, sizeof(block_data));
+			if(!zk->set(BLOCK_LOCATIONS + std::to_string(uuid), data_vect, error_code, false)) {
+				LOG(ERROR) << CLASS_NAME <<  "Failed writing block size to /block_locations/<block_uuid> " << error_code;
+				created_correctly = false;
+			}
+
+			// We do not need to sync these operations immediately
+			// Add this datanode as the block's location in block_locations
+			if(!zk->create(BLOCK_LOCATIONS + std::to_string(uuid) + "/" + id, ZKWrapper::EMPTY_VECTOR, error_code, true, false)) {
+				LOG(ERROR) << CLASS_NAME <<  "Failed creating /block_locations/<block_uuid>/<datanode_id> " << error_code;
+				created_correctly = false;
 			}
 		}
 
 		// Write block to /blocks
 		if (zk->exists(HEALTH_BACKSLASH + id + BLOCKS, exists, error_code)) {
 			if (exists) {
-				if (!zk->create(HEALTH_BACKSLASH + id + BLOCKS + "/" + std::to_string(uuid), ZKWrapper::EMPTY_VECTOR, error_code)) {
+				// We do not need to sync these operations immediately
+				if (!zk->create(HEALTH_BACKSLASH + id + BLOCKS + "/" + std::to_string(uuid), ZKWrapper::EMPTY_VECTOR, error_code, false, false)) {
 					LOG(ERROR) << CLASS_NAME <<  "Failed creating /health/<data_node_id>/blocks/<block_uuid> " << error_code;
 				}
 			}
@@ -94,52 +101,12 @@ namespace zkclient{
 		return created_correctly;
 	}
 
-	bool ZkClientDn::blockDeleted(uint64_t uuid) {
-		int error_code;
-		bool exists;
-
-		LOG(INFO) << "DataNode deleted a block with UUID " << std::to_string(uuid);
-		std::string id = build_datanode_id(data_node_id);
-
-		auto ops = std::vector<std::shared_ptr<ZooOp>>();
-
-		// Delete block locations
-		if (zk->exists(BLOCK_LOCATIONS + std::to_string(uuid) + "/" + id, exists, error_code)) {
-			if (exists) {
-				ops.push_back(zk->build_delete_op(BLOCK_LOCATIONS + std::to_string(uuid) + "/" + id));
-				// If deleted last child of block locations, delete block locations
-				std::vector <std::string> children = std::vector <std::string>();
-				if(!zk->get_children(BLOCK_LOCATIONS + std::to_string(uuid), children, error_code)){
-					LOG(ERROR) << "getting children failed";
-				}
-				if (children.size() == 1) {
-					ops.push_back(zk->build_delete_op(BLOCK_LOCATIONS + std::to_string(uuid)));
-				}
-			}
-		}
-
-		// Delete blocks
-		if (zk->exists(HEALTH_BACKSLASH + id + BLOCKS + "/" + std::to_string(uuid), exists, error_code)) {
-			if (exists) {
-				ops.push_back(zk->build_delete_op(HEALTH_BACKSLASH + id + BLOCKS + "/" + std::to_string(uuid)));
-			}
-		}
-
-		std::vector<zoo_op_result> results = std::vector<zoo_op_result>();
-		if (!zk->execute_multi(ops, results, error_code)) {
-			LOG(ERROR) << "Failed multiop when deleting block" << std::to_string(uuid);
-			for (int i = 0; i < results.size(); i++) {
-				LOG(ERROR) << "\t MULTIOP #" << i << " ERROR CODE: " << results[i].err;
-			}
-			return false;
- 		}
-	}
 
 	void ZkClientDn::registerDataNode(const std::string& ip, uint64_t total_disk_space, const uint32_t ipcPort, const uint32_t xferPort) {
 		// TODO: Consider using startup time of the DN along with the ip and port
 		int error_code;
 		bool exists;
-		
+
 		data_node_id = DataNodeId();
 		data_node_id.ip = ip;
 		data_node_id.ipcPort = ipcPort;
@@ -184,42 +151,25 @@ namespace zkclient{
 			LOG(ERROR) << CLASS_NAME <<  "Failed creating /health/<data_node_id>/blocks " << error_code;
 		}
 
-		// Create the work queues, set their watchers
-		ZkClientDn::initWorkQueue(DELETE_QUEUES, ZkClientDn::thisDNDeleteQueueWatcher);
+		// Create the delete queue
+		if (zk->exists(DELETE_QUEUES + id, exists, error_code)){
+				if (!exists){
+						LOG(INFO) << "doesn't exist, trying to make it";
+						if (!zk->create(DELETE_QUEUES + id, ZKWrapper::EMPTY_VECTOR, error_code, false)){
+								LOG(INFO) << "delete queue Creation failed";
+						}
+				}
+		}
 		// Create the replicate queue
 		if (zk->exists(REPLICATE_QUEUES + id, exists, error_code)){
 				if (!exists){
 						LOG(INFO) << "doesn't exist, trying to make it";
 						if (!zk->create(REPLICATE_QUEUES + id, ZKWrapper::EMPTY_VECTOR, error_code, false)){
-								LOG(INFO) << "Creation failed";
+								LOG(INFO) << "replicate queue Creation failed";
 						}
 				}
 		}
 		LOG(INFO) << "Registered datanode " + build_datanode_id(data_node_id);
-	}
-
-	void ZkClientDn::initWorkQueue(std::string queueName, void (* watchFuncPtr)(zhandle_t *, int, int, const char *, void *)){
-		int error_code;
-		bool exists;
-		std::string id = get_datanode_id();
-
-		// Create queue for this datanode
-		// TODO: Replace w/ actual queues when they're created
-		if (zk->exists(queueName + id, exists, error_code)){
-				if (!exists){
-						LOG(INFO) << "doesn't exist, trying to make it";
-						if (!zk->create(queueName + id, ZKWrapper::EMPTY_VECTOR, error_code, false)){
-								LOG(INFO) << "Creation failed";
-						}
-				}
-		}
-
-		// Register the replication watcher for this dn
-		std::vector <std::string> children;
-
-		if(!zk->wget_children(queueName + id, children, watchFuncPtr, this, error_code)){
-			LOG(INFO) << "getting children failed";
-		}
 	}
 
 	bool ZkClientDn::push_dn_on_repq(std::string dn_name, uint64_t blockid) {
@@ -249,6 +199,12 @@ namespace zkclient{
 		return true;
 	}
 
+	bool ZkClientDn::poll_delete_queue() {
+		LOG(INFO) << " poll delete queue";
+		processDeleteQueue();
+		return true;
+	}
+
 	void ZkClientDn::handleReplicateCmds(const std::string& path) {
 		int err;
 		// LOG(ERROR) << "handling replicate watcher for " << path;
@@ -258,6 +214,11 @@ namespace zkclient{
 			LOG(ERROR) << "Failed to get work items!";
 			return;
 		}
+
+		if (work_items.size() > 0) {
+			LOG(INFO) << get_datanode_id() <<"FOUND " << work_items.size() << " work items";
+		}
+
 		std::vector<std::shared_ptr<ZooOp>> ops;
 		for (auto &block : work_items){
 			auto full_work_item_path = util::concat_path(path, block);
@@ -307,7 +268,6 @@ namespace zkclient{
 				}
 			}
 			if (delete_item) {
-				// delete it no matter what
 				ops.push_back(zk->build_delete_op(full_work_item_path));
 			}
 		}
@@ -318,8 +278,45 @@ namespace zkclient{
 		}
 	}
 
-	void ZkClientDn::thisDNDeleteQueueWatcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx){
-		LOG(INFO) << "Delete watcher triggered on path: " << path;
+	void ZkClientDn::processDeleteQueue() {
+	    std::string path = util::concat_path(DELETE_QUEUES, get_datanode_id());
+		int error_code;
+		bool exists;
+		int err;
+		std::string id = build_datanode_id(data_node_id);
+		uint64_t block_id;
+		std::vector<std::string> work_items;
+		std::vector<std::shared_ptr<ZooOp>> ops;
+
+        if (!zk->get_children(path, work_items, err)){
+            LOG(ERROR) << "Failed to get work items!";
+            return;
+        }
+
+        LOG(INFO) << "Deleting this many blocks " << work_items.size();
+
+        for (auto &block : work_items) {
+			LOG(INFO) << "Delete working on " << block;
+			// get block id
+			std::vector<std::uint8_t> block_id_vec(sizeof(std::uint64_t));
+			std::uint64_t block_id;
+			if (!zk->get(util::concat_path(path, block), block_id_vec, err, sizeof(std::uint64_t))) {
+				LOG(ERROR) << "could not get the block id " << block << " because of " << err;
+				return;
+			}
+			memcpy(&block_id, &block_id_vec[0], sizeof(uint64_t));
+            if (!server->rmBlock(block_id)){
+                LOG(ERROR) << CLASS_NAME << "Block is not in fs " << block;
+            } else {
+				// just delete the thing from the queue
+				LOG(INFO) << "successful delete " << block;
+            }
+            ops.push_back(zk->build_delete_op(util::concat_path(path, block)));
+        }
+		std::vector<zoo_op_result> results;
+        if (!zk->execute_multi(ops, results, err)){
+            LOG(ERROR) << "Failed to delete sucessfully completed delete commands!";
+        }
 	}
 
 	ZkClientDn::~ZkClientDn() {
@@ -330,20 +327,21 @@ namespace zkclient{
 		return data_node_id.ip + ":" + std::to_string(data_node_id.ipcPort);
 	}
 
+
 	std::string ZkClientDn::get_datanode_id() {
 		return build_datanode_id(this->data_node_id);
 	}
 
 	bool ZkClientDn::sendStats(uint64_t free_space, uint32_t xmits) {
 		int error_code;
-		
+
 		std::string id = build_datanode_id(data_node_id);
 		data_node_payload.free_bytes = free_space;
 		data_node_payload.xmits = xmits;
 		std::vector<uint8_t> data;
 		data.resize(sizeof(DataNodePayload));
 		memcpy(&data[0], &data_node_payload, sizeof(DataNodePayload));
-		if (!zk->set(HEALTH_BACKSLASH + id + STATS, data, error_code)) {
+		if (!zk->set(HEALTH_BACKSLASH + id + STATS, data, error_code, false)) {
 			LOG(ERROR) << CLASS_NAME <<  "Failed setting /health/<data_node_id>/stats with error " << error_code;
 			return false;
 		}

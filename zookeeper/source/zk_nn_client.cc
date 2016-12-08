@@ -240,7 +240,16 @@ namespace zkclient{
     	std::vector<std::string> children;
     	std::string block_id_str = std::to_string(prev_id);
     	if (zk->get_children(BLOCK_LOCATIONS + block_id_str, children, error_code)) {
-            return children.size() >= MIN_REPLICATION;
+            if(children.size() >= MIN_REPLICATION) {
+				return true;
+			} else {
+				LOG(INFO) << "Had to sync: previous block failed";
+				// If we failed initially attempt to sync the changes, then check again
+				zk->flush(zk->prepend_zk_root(BLOCK_LOCATIONS + block_id_str), true);
+				if (zk->get_children(BLOCK_LOCATIONS + block_id_str, children, error_code)) {
+					return children.size() >= MIN_REPLICATION;
+				}
+			}
     	}
     	return false;
     }
@@ -296,6 +305,104 @@ namespace zkclient{
     	return true;
 	}
 
+    /**
+     * Since the names were a bit strange and it was a pain to go back and figure out 
+     * where these were again, I'm writing what the proto fields are here.
+     *
+     * message has:
+     * required ExtendedBlockProto b = 1;
+     * required string src = 2;
+     * required string holder = 3;
+     * optional uint64 fileId = 4 [default = 0];  // default to GRANDFATHER_INODE_ID 
+     *
+     * ExtendedBlockProto has:
+     * required string poolId = 1;   // Block pool id - gloablly unique across clusters
+     * required uint64 blockId = 2;  // the local id within a pool
+     * required uint64 generationStamp = 3;
+     * optional uint64 numBytes = 4 [default = 0];  // len does not belong in ebid 
+    */
+    bool ZkNnClient::abandon_block(AbandonBlockRequestProto& req, AbandonBlockResponseProto& res) {
+        const std::string& file_path = req.src();
+        const std::string& holder = req.holder(); // I believe this is the lease holder?
+        LOG(INFO) << CLASS_NAME << "Attempting to abandon block";
+
+        //uint64 generationStamp (as well as the optional uint64 numBytes)
+        const ExtendedBlockProto& block = req.b();
+        const std::string poolId = block.poolid();
+        const uint64_t blockId = block.blockid();
+        const uint64_t generation_stamp = block.generationstamp();
+        LOG(INFO) << CLASS_NAME << "Requested to abandon block: " << blockId;
+        LOG(INFO) << CLASS_NAME << "This block is in pool " << poolId;
+        LOG(INFO) << CLASS_NAME << "Its generation stamp is " << generation_stamp;
+
+        const std::string block_id_str = std::to_string(blockId);
+        LOG(INFO) << CLASS_NAME << "...Also, converted blockid to a string: " << block_id_str;
+
+        LOG(INFO) << CLASS_NAME << "Checking file exists: " << file_path;
+
+        //Double check the file exists first
+        FileZNode znode_data;
+        if (!file_exists(file_path)) {
+            LOG(ERROR) << CLASS_NAME << "Requested file " << file_path << " does not exist";
+            return false;
+        }
+        read_file_znode(znode_data, file_path);
+        if (znode_data.filetype != IS_FILE) { // Assert that the znode we want to modify is a file
+            LOG(ERROR) << CLASS_NAME << "Requested file " << file_path << " is not a file";
+            return false;
+        }
+        LOG(INFO) << CLASS_NAME << "File exists. Building multi op to abandon block";
+
+        // Find the last block
+        int error_code;
+        std::vector<std::string> sorted_fs_znodes;
+        if(!zk->get_children(ZookeeperPath(file_path), sorted_fs_znodes, error_code)) {
+            LOG(ERROR) << CLASS_NAME << "Failed getting children of " << ZookeeperPath(file_path) << " with error: " << error_code;
+        }
+        std::sort(sorted_fs_znodes.begin(), sorted_fs_znodes.end());
+
+        // Build the multi op - it's a reverse of the one's in add_block.
+        // Note that it was due to the ZOO_SEQUENCE flag that this first
+        // znode's path has the 9 digit number on the end.
+        auto undo_seq_file_block_op = zk->build_delete_op(ZookeeperPath(file_path + "/" + sorted_fs_znodes.back()));
+        auto undo_ack_op = zk->build_delete_op("/work_queues/wait_for_acks/" + block_id_str);
+
+        std::vector<std::string> datanodes;
+        if (!find_all_datanodes_with_block(block_id_str, datanodes, error_code)) {
+            LOG(ERROR) << CLASS_NAME << "Could not find datandoes with the block";
+        }
+
+        std::vector<std::shared_ptr<ZooOp>> ops;
+        ops.push_back(undo_seq_file_block_op);
+        ops.push_back(undo_ack_op);
+
+        std::vector<uint8_t> block_vec(sizeof(uint64_t));
+        memcpy(&block_vec[0], &blockId, sizeof(uint64_t));
+
+        // push delete commands onto ops
+        for (auto& dn : datanodes){
+            auto delete_queue = util::concat_path(DELETE_QUEUES, dn);
+            auto delete_item = util::concat_path(delete_queue, "block-");
+            ops.push_back(zk->build_create_op(delete_item, block_vec, ZOO_SEQUENCE));
+            blockDeleted(blockId, dn);
+        }
+
+        auto results = std::vector <zoo_op_result>();
+        int err;
+
+        LOG(INFO) << CLASS_NAME << "Built multi op. Executing multi op to abandon block... " << file_path;
+        if (!zk->execute_multi(ops, results, err)) {
+            LOG(ERROR) << CLASS_NAME << "Failed to write the abandon_block multiop, ZK state was not changed";
+            ZKWrapper::print_error(err);
+            for (int i = 0; i < results.size(); i++) {
+                LOG(ERROR) << "\t MULTIOP #" << i << " ERROR CODE: " << results[i].err;
+            }
+            return false;
+        }
+    	return true;
+    }
+
+
     void ZkNnClient::get_info(GetFileInfoRequestProto& req, GetFileInfoResponseProto& res) {
         const std::string& path = req.src();
 
@@ -340,6 +447,47 @@ namespace zkclient{
             return 1;
         }
         return 0;
+    }
+
+    bool ZkNnClient::blockDeleted(uint64_t uuid, std::string id) {
+        int error_code;
+        bool exists;
+
+        LOG(INFO) << "DataNode deleted a block with UUID " << std::to_string(uuid);
+
+        auto ops = std::vector<std::shared_ptr<ZooOp>>();
+
+        // Delete block locations
+        if (zk->exists(BLOCK_LOCATIONS + std::to_string(uuid) + "/" + id, exists, error_code)) {
+            if (exists) {
+                ops.push_back(zk->build_delete_op(BLOCK_LOCATIONS + std::to_string(uuid) + "/" + id));
+                std::vector <std::string> children = std::vector <std::string>();
+                if(!zk->get_children(BLOCK_LOCATIONS + std::to_string(uuid), children, error_code)){
+                    LOG(ERROR) << "getting children failed";
+                }
+                // If deleting last child of block locations, delete block locations at this block uuid
+                if (children.size() == 1) {
+                    ops.push_back(zk->build_delete_op(BLOCK_LOCATIONS + std::to_string(uuid)));
+                }
+            }
+        }
+
+        // Delete blocks
+        if (zk->exists(HEALTH_BACKSLASH + id + BLOCKS + "/" + std::to_string(uuid), exists, error_code)) {
+            if (exists) {
+                ops.push_back(zk->build_delete_op(HEALTH_BACKSLASH + id + BLOCKS + "/" + std::to_string(uuid)));
+            }
+        }
+
+        std::vector<zoo_op_result> results = std::vector<zoo_op_result>();
+        if (!zk->execute_multi(ops, results, error_code)) {
+            LOG(ERROR) << "Failed multiop when deleting block" << std::to_string(uuid);
+            for (int i = 0; i < results.size(); i++) {
+                LOG(ERROR) << "\t MULTIOP #" << i << " ERROR CODE: " << results[i].err;
+            }
+            return false;
+        }
+        return true;
     }
 
     bool ZkNnClient::destroy_helper(const std::string& path, std::vector<std::shared_ptr<ZooOp>>& ops){
@@ -389,8 +537,8 @@ namespace zkclient{
                 for (auto& dn : datanodes){
                     auto delete_queue = util::concat_path(DELETE_QUEUES, dn);
                     auto delete_item = util::concat_path(delete_queue, "block-");
-                    // TODO: saving this until DataNode team creates delete work queues
-                    //ops.push_back(zk->build_create_op(delete_item, block_vec, ZOO_SEQUENCE));
+                    ops.push_back(zk->build_create_op(delete_item, block_vec, ZOO_SEQUENCE));
+                    blockDeleted(block, dn);
                 }
             }
         }
@@ -487,6 +635,7 @@ namespace zkclient{
         // if we failed, then do not set any status
         if (!create_file_znode(path, &znode_data))
             return false;
+
 
         HdfsFileStatusProto* status = response.mutable_fs();
         set_file_info(status, path, znode_data);
@@ -783,10 +932,20 @@ namespace zkclient{
 
 			LOG(INFO) << CLASS_NAME << "Found block locations " << data_nodes.size();
 
-			for (auto data_node = data_nodes.begin(); data_node != data_nodes.end(); ++data_node) {
-			    LOG(INFO) << "Block DN Loc: " << *data_node;
-			    buildDatanodeInfoProto(located_block->add_locs(), *data_node);
+			auto sorted_data_nodes = std::vector<std::string>();
+			if (sort_by_xmits(data_nodes, sorted_data_nodes)) {
+				for (auto data_node = sorted_data_nodes.begin(); data_node != sorted_data_nodes.end(); ++data_node) {
+				    LOG(INFO) << "Block DN Loc: " << *data_node;
+				    buildDatanodeInfoProto(located_block->add_locs(), *data_node);
+				}
+			} else {
+				LOG(ERROR) << "Unable to sort DNs by # xmits in get_block_locations. Using unsorted instead.";
+				for (auto data_node = data_nodes.begin(); data_node != data_nodes.end(); ++data_node) {
+				    LOG(INFO) << "Block DN Loc: " << *data_node;
+				    buildDatanodeInfoProto(located_block->add_locs(), *data_node);
+				}
 			}
+
 			buildTokenProto(located_block->mutable_blocktoken());
 	    	}
 		size += block_size;
@@ -795,6 +954,30 @@ namespace zkclient{
 
 
     // ---------------------------------------- HELPERS ----------------------------------------
+
+	bool ZkNnClient::sort_by_xmits(const std::vector<std::string> &unsorted_dn_ids, std::vector<std::string> &sorted_dn_ids) {
+		int error_code;
+        std::priority_queue<TargetDN> targets;
+
+		for (auto datanode : unsorted_dn_ids) {
+	        std::string dn_stats_path = HEALTH_BACKSLASH + datanode + STATS;
+	        std::vector<uint8_t> stats_payload;
+	        stats_payload.resize(sizeof(DataNodePayload));
+	        if (!zk->get(dn_stats_path, stats_payload, error_code, sizeof(DataNodePayload))) {
+	            LOG(ERROR) << CLASS_NAME << "Failed to get " << dn_stats_path;
+	            return false;
+	        }
+	        DataNodePayload stats = DataNodePayload();
+	        memcpy(&stats, &stats_payload[0], sizeof(DataNodePayload));
+            targets.push(TargetDN(datanode, stats.free_bytes, stats.xmits));
+		}
+
+		while (targets.size() > 0) {
+            TargetDN target = targets.top();
+            sorted_dn_ids.push_back(target.dn_id);
+            targets.pop();
+		}
+	}
 
     std::string ZkNnClient::ZookeeperPath(const std::string &hadoopPath){
         std::string zkpath = NAMESPACE_PATH;
@@ -944,7 +1127,9 @@ namespace zkclient{
 
         LOG(INFO) << CLASS_NAME << "Generating block for " << ZookeeperPath(file_path);
 
-        // ZooKeeper multi-op to
+        // ZooKeeper multi-op to add block
+	// (Note the actual path of the znode the first create op makes will have a 9
+	// digit number appended onto the end because of the ZOO_SEQUENCE flag)
         auto seq_file_block_op = zk->build_create_op(ZookeeperPath(file_path + "/block_"), data, ZOO_SEQUENCE);
         auto ack_op = zk->build_create_op("/work_queues/wait_for_acks/" + block_id_str, ZKWrapper::EMPTY_VECTOR);
         auto block_location_op = zk->build_create_op("/block_locations/" + block_id_str, ZKWrapper::EMPTY_VECTOR);
@@ -953,8 +1138,8 @@ namespace zkclient{
 
         auto results = std::vector <zoo_op_result>();
         int err;
-        // TODO: Perhaps we have to perform a more fine grained analysis of the results
-        if (!zk->execute_multi(ops, results, err)) {
+		// We do not need to sync this multi-op immediately
+        if (!zk->execute_multi(ops, results, err, false)) {
             LOG(ERROR) << CLASS_NAME << "Failed to write the addBlock multiop, ZK state was not changed";
             ZKWrapper::print_error(err);
             return false;
@@ -1302,11 +1487,29 @@ namespace zkclient{
 			ops.push_back(zk->build_create_op(repl_item, ZKWrapper::EMPTY_VECTOR));
 		}
 
-		if (!zk->execute_multi(ops, results, err)){
+		// We do not need to sync this multi-op immediately
+		if (!zk->execute_multi(ops, results, err, false)){
 			LOG(ERROR) << "Failed to execute multiop for replicate_blocks";
 			return false;
 		}
 	}
+
+
+    bool ZkNnClient::find_all_datanodes_with_block(const std::string &block_uuid_str, std::vector<std::string>
+        &rdatanodes, int &error_code) {
+
+        std::string block_loc_path = BLOCK_LOCATIONS + block_uuid_str;
+
+        if (!zk->get_children(block_loc_path, rdatanodes, error_code)) {
+            LOG(ERROR) << "Failed to get children of: " << block_loc_path;
+            return false;
+        }
+        if (rdatanodes.size() < 1) {
+            LOG(ERROR) << "There are no datanodes with a replica of block " << block_uuid_str;
+            return false;
+        }
+        return true;
+    }
 
     int ZkNnClient::ms_since_creation(std::string &path) {
         int error;

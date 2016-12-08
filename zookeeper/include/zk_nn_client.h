@@ -85,6 +85,11 @@ class ZkNnClient : public ZkClientCommon {
 		 * Add block.
 		 */
 		bool add_block(AddBlockRequestProto& req, AddBlockResponseProto& res);
+        
+        /**
+         * Abandons the block - basically reverses all of add block's multiops
+         */
+		bool abandon_block(AbandonBlockRequestProto& req, AbandonBlockResponseProto& res);
 
 		bool previousBlockComplete(uint64_t prev_id);
 		/**
@@ -106,6 +111,9 @@ class ZkNnClient : public ZkClientCommon {
 
 		bool find_datanode_for_block(std::vector<std::string>& datanodes, const std::uint64_t blockId, uint32_t replication_factor, bool newBlock, uint64_t blocksize);
 
+		bool find_all_datanodes_with_block(const std::string &block_uuid_str, std::vector<std::string> &rdatanodes,
+		int &error_code);
+
 	    bool rename_ops_for_file(const std::string &src, const std::string &dst, std::vector<std::shared_ptr<ZooOp>> &ops);
 	    bool rename_ops_for_dir(const std::string &src, const std::string &dst, std::vector<std::shared_ptr<ZooOp>> &ops);
 
@@ -120,6 +128,12 @@ class ZkNnClient : public ZkClientCommon {
 		void get_block_locations(const std::string &src, google::protobuf::uint64 offset, google::protobuf::uint64 length, LocatedBlocksProto* blocks);
 
 private:
+
+		/**
+		 * Given a vector of DN IDs, sorts them from fewest to most number of transmits
+		 */
+		bool sort_by_xmits(const std::vector<std::string> &unsorted_dn_ids, std::vector<std::string> &sorted_dn_ids);
+
 
 		/**
 		 * Set the file status proto with information from the znode struct and the path
@@ -219,6 +233,14 @@ private:
 		 * Returns the current timestamp in milliseconds
 		 */
 		uint64_t current_time_ms();
+
+        /**
+        * Informs Zookeeper when the DataNode has deleted a block.
+        * @param uuid The UUID of the block deleted by the DataNode.
+        * @param size_bytes The number of bytes in the block
+        * @return True on success, false on error.
+        */
+        bool blockDeleted(uint64_t uuid, std::string id);
 
 		const int UNDER_CONSTRUCTION = 1;
 		const int FILE_COMPLETE = 0;

@@ -24,6 +24,8 @@ int main(int argc, char* argv[]) {
 	el::Configurations conf(LOG_CONFIG_FILE);
 	el::Loggers::reconfigureAllLoggers(conf);
 
+	int error_code = 0;
+
 	asio::io_service io_service;
 	unsigned short xferPort = 50010;
 	unsigned short ipcPort = 50020;
@@ -61,7 +63,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 	uint64_t total_disk_space = fs->getTotalSpace();
-	// TODO: Change the datanode id
+
 	auto dncli = std::make_shared<zkclient::ZkClientDn>("54.196.213.186", ip_port_pairs, total_disk_space, ipcPort, xferPort);
 	ClientDatanodeTranslator translator(ipcPort);
 	auto transfer_server = std::make_shared<TransferServer>(xferPort, fs, dncli);
@@ -69,7 +71,7 @@ int main(int argc, char* argv[]) {
 	daemon_thread::DaemonThreadFactory factory;
 	factory.create_daemon_thread(&TransferServer::sendStats, transfer_server.get(), 3);
 	factory.create_daemon_thread(&TransferServer::poll_replicate, transfer_server.get(), 2);
-
+	factory.create_daemon_thread(&TransferServer::poll_delete, transfer_server.get(), 5);
 	std::thread(&TransferServer::serve, transfer_server.get(), std::ref(io_service)).detach();
 	translator.getRPCServer().serve(io_service);
 }
