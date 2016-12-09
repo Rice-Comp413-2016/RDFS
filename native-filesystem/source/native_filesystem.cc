@@ -305,8 +305,10 @@ namespace nativefs {
 	uint64_t NativeFS::getFreeSpace() {
 		uint64_t allocatedSize = 0;
 		for (size_t i = 0; i < BLOCK_LIST_LEN; i++) {
-			allocatedSize += blocks[i].len;
+			if (!blocks[i].free) {
+				allocatedSize += blocks[i].len;
+			}
 		}
-		return getTotalSpace() - allocatedSize;
+		return getTotalSpace() - allocatedSize - MAGIC.size() - BLOCK_LIST_SIZE;
 	}
 }

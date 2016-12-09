@@ -85,7 +85,7 @@ void TransferServer::processWriteRequest(tcp::socket& sock) {
 		ERROR_AND_RETURN("Failed to op the write block proto.");
 	}
 	std::string response_string;
-	buildBlockOpResponse(response_string);
+	buildBlockOpResponse(response_string, 0);
 
 	const ClientOperationHeaderProto header = proto.header();
 	std::vector<DatanodeInfoProto> targets;
@@ -196,8 +196,9 @@ void TransferServer::processReadRequest(tcp::socket& sock) {
 		ERROR_AND_RETURN("Failed to op the read block proto.");
 	}
 	std::string response_string;
+	uint64_t offset = proto.offset();
 
-	buildBlockOpResponse(response_string);
+	buildBlockOpResponse(response_string, offset);
 	if (rpcserver::write_delimited_proto(sock, response_string)) {
 		LOG(INFO) << "Successfully sent response to client";
 	} else {
@@ -211,7 +212,6 @@ void TransferServer::processReadRequest(tcp::socket& sock) {
 		LOG(ERROR) << "Failure on fs.getBlock";
 	}
 
-	uint64_t offset = proto.offset();
 	uint64_t len = std::min(block.size() - offset, proto.len());
 	if (offset > block.size()) {
 		len = 0;
@@ -272,7 +272,7 @@ bool TransferServer::writeFinalPacket(tcp::socket& sock, uint64_t offset, uint64
 		return writePacket(sock, p_head, asio::buffer(""));
 }
 
-void TransferServer::buildBlockOpResponse(std::string& response_string) {
+void TransferServer::buildBlockOpResponse(std::string& response_string, uint64_t offset) {
 	BlockOpResponseProto response;
 	response.set_status(SUCCESS);
 	OpBlockChecksumResponseProto* checksum_res = response.mutable_checksumresponse();
@@ -280,7 +280,7 @@ void TransferServer::buildBlockOpResponse(std::string& response_string) {
 	checksum_res->set_crcperblock(7);
 	checksum_res->set_md5("this is my md5");
 	ReadOpChecksumInfoProto* checksum_info = response.mutable_readopchecksuminfo();
-	checksum_info->set_chunkoffset(0);
+	checksum_info->set_chunkoffset(offset);
 	ChecksumProto* checksum = checksum_info->mutable_checksum();
 	checksum->set_type(CHECKSUM_NULL);
 	checksum->set_bytesperchecksum(17);
@@ -301,9 +301,9 @@ void TransferServer::serve(asio::io_service& io_service) {
 
 void TransferServer::synchronize(std::function<void(TransferServer&, tcp::socket&)> f, tcp::socket& sock){
 	std::unique_lock<std::mutex> lk(m);
-	while (xmits.fetch_add(0) >= max_xmits){
-		cv.wait(lk);
-	}
+	//while (xmits.fetch_add(0) >= max_xmits){
+	//	cv.wait(lk);
+	//}
 	xmits++;
 	LOG(INFO) << "**********" << "num xmits is " << xmits.fetch_add(0);
 	lk.unlock();

@@ -214,6 +214,12 @@ std::string ClientNamenodeTranslator::getContentSummary(std::string input) {
 	zk.get_content(req, res);
 	return Serialize(res);
 }
+
+std::string ClientNamenodeTranslator::fsync(std::string input) {
+	FsyncResponseProto res;
+	return Serialize(res);
+}
+
 /**
  * While we expect clients to renew their lease, we should never allow
  * a client to "recover" a lease, since we only allow a write-once system
@@ -361,6 +367,7 @@ void ClientNamenodeTranslator::RegisterClientRPCHandlers() {
 	server.register_handler("complete", std::bind(&ClientNamenodeTranslator::complete, this, _1));
 	server.register_handler("getBlockLocations", std::bind(&ClientNamenodeTranslator::getBlockLocations, this, _1));
 	server.register_handler("addBlock", std::bind(&ClientNamenodeTranslator::addBlock, this, _1));
+	server.register_handler("fsync", std::bind(&ClientNamenodeTranslator::fsync, this, _1));
 
 	//TODO - what is this function for? Do we still need it??
 	server.register_handler("rename2", std::bind(&ClientNamenodeTranslator::rename2, this, _1));
