@@ -46,6 +46,7 @@ class ClientNamenodeTranslator {
 		std::string getEZForPath(std::string input);
 		std::string setOwner(std::string input);
 		std::string getContentSummary(std::string input);
+		std::string fsync(std::string input);
 
 		// RPC calls which are not supported
 		std::string rename(std::string);

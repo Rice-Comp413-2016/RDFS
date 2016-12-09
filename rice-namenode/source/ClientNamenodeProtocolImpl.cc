@@ -214,6 +214,12 @@ std::string ClientNamenodeTranslator::getContentSummary(std::string input) {
 	zk.get_content(req, res);
 	return Serialize(res);
 }
+
+std::string ClientNamenodeTranslator::fsync(std::string input) {
+	FsyncResponseProto res;
+	return Serialize(res);
+}
+
 /**
  * While we expect clients to renew their lease, we should never allow
  * a client to "recover" a lease, since we only allow a write-once system
