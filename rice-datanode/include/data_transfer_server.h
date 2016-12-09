@@ -77,7 +77,7 @@ class TransferServer {
 		void handle_connection(tcp::socket sock);
 		void processWriteRequest(tcp::socket& sock);
 		void processReadRequest(tcp::socket& sock);
-		void buildBlockOpResponse(std::string& response_string);
+		void buildBlockOpResponse(std::string& response_string, uint64_t offset);
 		void ackPacket(tcp::socket& sock, PacketHeaderProto& p_head);
 
 		bool writeFinalPacket(tcp::socket& sock, uint64_t, uint64_t);
