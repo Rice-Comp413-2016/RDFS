@@ -296,9 +296,9 @@ void TransferServer::serve(asio::io_service& io_service) {
 
 void TransferServer::synchronize(std::function<void(TransferServer&, tcp::socket&)> f, tcp::socket& sock){
 	std::unique_lock<std::mutex> lk(m);
-	while (xmits.fetch_add(0) >= max_xmits){
-		cv.wait(lk);
-	}
+	//while (xmits.fetch_add(0) >= max_xmits){
+	//	cv.wait(lk);
+	//}
 	xmits++;
 	LOG(INFO) << "**********" << "num xmits is " << xmits.fetch_add(0);
 	lk.unlock();
