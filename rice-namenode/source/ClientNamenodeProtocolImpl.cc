@@ -366,6 +366,7 @@ void ClientNamenodeTranslator::RegisterClientRPCHandlers() {
 	server.register_handler("complete", std::bind(&ClientNamenodeTranslator::complete, this, _1));
 	server.register_handler("getBlockLocations", std::bind(&ClientNamenodeTranslator::getBlockLocations, this, _1));
 	server.register_handler("addBlock", std::bind(&ClientNamenodeTranslator::addBlock, this, _1));
+	server.register_handler("fsync", std::bind(&ClientNamenodeTranslator::fsync, this, _1));
 
 	//TODO - what is this function for? Do we still need it??
 	server.register_handler("rename2", std::bind(&ClientNamenodeTranslator::rename2, this, _1));
