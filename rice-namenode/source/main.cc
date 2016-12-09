@@ -25,21 +25,11 @@ int main(int argc, char* argv[]) {
 	// usage: namenode ip ip ip [port], optional
 	short port = 5351;
 	short zk_port = 2181;
-	std::string ip_port_pairs("");
+	// Hard coded ip:port pairs for the zk quorum 
+	std::string ip_port_pairs("34.194.46.46:2181,34.194.83.197:2181,34.194.27.197:2181");
 
-	if (argc == 5 || argc == 4) {
-		if (argc == 5) {
-			port = std::atoi(argv[4]);
-		}
-		std::string comma(",");
-		std::string colon(":");
-		std::string pstr(std::to_string(zk_port));
-		ip_port_pairs += argv[1] + colon + pstr + comma + argv[2] + colon + pstr + comma + argv[3] + colon + pstr;
-		LOG(INFO) << "IP and port pairs are " << ip_port_pairs;
-	} else {
-		/* bad args */
-		LOG(INFO) << "Bad arguments supplied, exiting";
-		return 1;
+	if (argc >= 2) {
+		port = std::atoi(argv[1]);
 	}
 
 	zkclient::ZkNnClient nncli(ip_port_pairs);

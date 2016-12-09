@@ -31,30 +31,24 @@ int main(int argc, char* argv[]) {
 	unsigned short ipcPort = 50020;
 	std::string backingStore("/var/DISK");
 
-	// usage: namenode ip ip ip [port], optional
-	//short port = 2181;
-	std::string ip_port_pairs("");
+	// Must pass the datanode private IP as first arg
 
-	if (argc < 6) {
-		LOG(INFO) << "Bad arguments supplied, exiting";
+	if (argc < 2) {
+		LOG(INFO) << "Make sure to pass datanode private IP as first arg. Exiting";
 		return 1;
 	}
 
-	short port = std::atoi(argv[4]);
-	std::string comma(",");
-	std::string colon(":");
-	std::string pstr(std::to_string(port));
-	ip_port_pairs += argv[1] + colon + pstr + comma + argv[2] + colon + pstr + comma + argv[3] + colon + pstr;
-	LOG(INFO) << "IP and port pairs are " << ip_port_pairs;
+	// Hard coded ip:port pairs for zk quorum
+	std::string ip_port_pairs("34.194.46.46:2181,34.194.83.197:2181,34.194.27.197:2181");
 
-	if (argc >= 7) {
-		xferPort = std::atoi(argv[6]);
+	if (argc >= 3) {
+		xferPort = std::atoi(argv[2]);
 	}
-	if (argc >= 8) {
-		ipcPort = std::atoi(argv[7]);
+	if (argc >= 4) {
+		ipcPort = std::atoi(argv[3]);
 	}
-	if (argc >= 9) {
-		backingStore = argv[8];
+	if (argc >= 5) {
+		backingStore = argv[4];
 	}
 	LOG(INFO) << "my backingstore is " << backingStore;
 	auto fs = std::make_shared<nativefs::NativeFS>(backingStore);
@@ -64,7 +58,7 @@ int main(int argc, char* argv[]) {
     }
 	uint64_t total_disk_space = fs->getTotalSpace();
 
-	auto dncli = std::make_shared<zkclient::ZkClientDn>(argv[5], ip_port_pairs, total_disk_space, ipcPort, xferPort);
+	auto dncli = std::make_shared<zkclient::ZkClientDn>(argv[1], ip_port_pairs, total_disk_space, ipcPort, xferPort);
 	ClientDatanodeTranslator translator(ipcPort);
 	auto transfer_server = std::make_shared<TransferServer>(xferPort, fs, dncli);
     dncli->setTransferServer(transfer_server);
