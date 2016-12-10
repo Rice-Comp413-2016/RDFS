@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 	asio::io_service io_service;
 	unsigned short xferPort = 50010;
 	unsigned short ipcPort = 50020;
-	std::string backingStore("/var/DISK");
+	std::string backingStore("/dev/sdb");
 
 	// Must pass the datanode private IP as first arg
 
