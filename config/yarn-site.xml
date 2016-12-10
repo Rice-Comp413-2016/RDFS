@@ -21,7 +21,7 @@
   </property>
   <property>
     <name>yarn.resourcemanager.hostname</name>
-    <value>172.31.20.155</value>
+    <value>34.194.27.197</value>
   </property>
   <property>
     <name>yarn.scheduler.minimum-allocation-mb</name>
