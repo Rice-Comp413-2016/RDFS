@@ -1085,8 +1085,8 @@ namespace zkclient{
         status->set_path(path);
         status->set_length(znode_data.length);
         status->set_blocksize(znode_data.blocksize);
-        std::string owner(znode_data.owner);
-        std::string group(znode_data.group);
+        std::string owner("ubuntu");
+        std::string group("ubuntu");
         status->set_owner(owner);
         status->set_group(group);
 
