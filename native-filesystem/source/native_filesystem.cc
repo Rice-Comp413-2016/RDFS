@@ -188,7 +188,6 @@ namespace nativefs {
 			}
 		}
 		LOG(INFO) << CLASS_NAME << "Writing block " << id << " to offset " << offset;
-		LOG(INFO) << CLASS_NAME << "Writing " << blk;
 		disk.seekp(offset);
 		disk << blk;
 		disk.flush();
