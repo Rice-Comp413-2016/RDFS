@@ -140,7 +140,7 @@ void TransferServer::processWriteRequest(tcp::socket& sock) {
 			block_data += data;
 		}
 
-		LOG(INFO) << "WRITING BLOCK " << block_data;
+		//LOG(INFO) << "WRITING BLOCK " << block_data;
 
 		// Wait free queue will return false on failure to insert element. Keep trying until insert works
 		if (!last_packet) {
