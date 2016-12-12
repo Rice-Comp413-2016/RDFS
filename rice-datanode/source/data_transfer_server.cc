@@ -216,6 +216,10 @@ void TransferServer::processReadRequest(tcp::socket& sock) {
 	if (offset > block.size()) {
 		len = 0;
 	}
+    if (len == 0) {
+	LOG(INFO) << "FIX YOUR CLIENT";
+        return;
+    }
 
 	LOG(INFO) << "READING BLOCK " << block;
 
