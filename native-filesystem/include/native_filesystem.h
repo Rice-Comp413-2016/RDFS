@@ -24,7 +24,7 @@ namespace nativefs {
 	constexpr size_t MIN_BLOCK_SIZE = 1 << MIN_BLOCK_POWER;
 	constexpr size_t MAX_BLOCK_SIZE = 1 << MAX_BLOCK_POWER;
 	constexpr size_t FREE_LIST_SIZE = MAX_BLOCK_POWER - MIN_BLOCK_POWER + 1;
-	constexpr size_t DISK_SIZE = MAX_BLOCK_SIZE * 6;
+	constexpr size_t DISK_SIZE = 30000000000;
 	constexpr size_t BLOCK_LIST_LEN = DISK_SIZE / MIN_BLOCK_SIZE;
 	constexpr size_t BLOCK_LIST_SIZE = BLOCK_LIST_LEN * sizeof(block_info);
 	// If MAGIC changes, make sure to change the 8 in RESERVED_SIZE too.
