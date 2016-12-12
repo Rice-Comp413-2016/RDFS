@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
 	if (argc == 2) {
 		port = std::atoi(argv[1]);
 	}
-	auto zk_shared = std::make_shared<ZKWrapper>("localhost:2181,localhost:2182,localhost:2183", error_code, "/testing");
+	auto zk_shared = std::make_shared<ZKWrapper>("172.31.3.210:2181", error_code, "/testing");
 	zkclient::ZkNnClient nncli(zk_shared);
 	nncli.register_watches();
 	std::cout << "Namenode is starting" << std::endl;

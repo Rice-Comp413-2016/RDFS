@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 	uint64_t total_disk_space = fs->getTotalSpace();
-	auto zk_shared = std::make_shared<ZKWrapper>("localhost:2181,localhost:2182,localhost:2183", error_code, "/testing");
+	auto zk_shared = std::make_shared<ZKWrapper>("172.31.3.210:2181", error_code, "/testing");
 	auto dncli = std::make_shared<zkclient::ZkClientDn>("127.0.0.1", zk_shared, total_disk_space, ipcPort, xferPort); // TODO: Change the datanode id
 	ClientDatanodeTranslator translator(ipcPort);
 	auto transfer_server = std::make_shared<TransferServer>(xferPort, fs, dncli);
